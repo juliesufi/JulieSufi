@@ -1,0 +1,68 @@
+import assert from "node:assert/strict";
+import { readFile, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+// Local-only integration check. Never point this script at a production website.
+const base="http://127.0.0.1:4173";
+let cookie="";
+async function call(path,body,expected=200,headers={}){
+ const r=await fetch(base+path,{method:body===undefined?"GET":"POST",headers:{...(cookie?{cookie}:{}),...(body instanceof FormData?{}:body===undefined?{}:{"Content-Type":"application/json"}),...headers},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});
+ const text=await r.text();assert.equal(r.status,expected,path+": "+text.slice(0,350));return text?JSON.parse(text):null;
+}
+await call("/api/storefront",undefined,200);
+await call("/api/storefront?preview=1",undefined,401);
+await call("/api/admin/data",undefined,401);
+await call("/api/enquiries",undefined,401);
+await call("/api/admin/upload",new FormData(),401);
+await call("/api/admin/login",{passcode:"incorrect"},401);
+assert.ok(process.env.TEST_ADMIN_PASSCODE,"Set TEST_ADMIN_PASSCODE to your local development admin password; configure ADMIN_SESSION_SECRET in the local Worker too.");
+const login=await fetch(base+"/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({passcode:process.env.TEST_ADMIN_PASSCODE})});
+assert.equal(login.status,200);cookie=login.headers.get("set-cookie").split(";")[0];
+await call("/api/site-access",undefined,200,{cookie:"julie_admin_session=malformed.invalid"});
+let envelope=await call("/api/admin/data"),original=structuredClone(envelope.data);
+assert.equal(original.version,2);
+assert.deepEqual(original.home.map(p=>p.type),["hero","collections","hero","instagram","text"]);
+assert.deepEqual(original.collections.filter(c=>c.published).map(c=>c.name),["Gardenia","Mon Couer"]);
+for(const slug of ["custom-bridal","about-us","retailers","contact-us","terms-policy","faqs","terms-of-use","privacy-policy","return-policy"])assert.ok(original.pages.some(p=>p.slug===slug),slug);
+assert.deepEqual(original.pages.find(p=>p.slug==="custom-bridal").panels.filter(p=>p.shown).map(p=>p.type),["hero","split","contact"]);
+assert.deepEqual(original.pages.find(p=>p.slug==="about-us").panels.filter(p=>p.shown).map(p=>p.type),["split","contact"]);
+const draft=structuredClone(original);
+draft.home[0].title="LOCAL TEST DRAFT";
+draft.home.reverse();draft.home[0].shown=false;
+draft.home.push({...draft.home[0],id:crypto.randomUUID(),label:"Test added panel",shown:true,link:"/pages/custom-bridal",linkLabel:"Custom bridal"});
+draft.pages.find(p=>p.slug==="retailers").panels[0].body="Saved retailer copy";
+const col=draft.collections.find(c=>c.published);
+for(let i=0;i<7;i++)col.products.push({id:"test-"+i,slug:"test-gown-"+i,name:"Test gown "+i,description:"Local integration test",price:10000+i*100,showPrice:i!==0,published:true,media:[]});
+col.products.push({id:"test-distant",slug:"test-distant",name:"Different budget",description:"",price:100000,showPrice:false,published:true,media:[]});
+envelope=await call("/api/admin/data",{data:draft,revision:envelope.revision,publish:false});
+assert.equal((await call("/api/storefront")).home[0].title,original.home[0].title,"Draft must not change live content");
+assert.equal((await call("/api/storefront?preview=1")).home.at(-1).label,"Test added panel");
+await call("/api/admin/data",{data:draft,revision:"stale-revision",publish:true},409);
+const invalid=structuredClone(draft);invalid.collections[0].products[0].showPrice=true;invalid.collections[0].products[0].price=null;
+await call("/api/admin/data",{data:invalid,revision:envelope.revision},400);
+envelope=await call("/api/admin/data",{data:draft,revision:envelope.revision,publish:true});
+const live=await call("/api/storefront");
+assert.equal(live.home.at(-1).label,"Test added panel");
+const hidden=live.collections.flatMap(c=>c.products).find(p=>p.id==="test-0");
+assert.equal(hidden.price,null);assert.equal(hidden.recommendations.length,5);assert.ok(!hidden.recommendations.includes("test-0"));assert.ok(!hidden.recommendations.includes("test-distant"));
+assert.equal((await call("/api/admin/data")).data.collections.flatMap(c=>c.products).find(p=>p.id==="test-0").price,10000);
+const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1sAAAAASUVORK5CYII=","base64");
+const image=new FormData();image.append("file",new File([png],"test.png",{type:"image/png"}));
+const uploaded=await call("/api/admin/upload",image);assert.equal(uploaded.type,"image");
+const asset=await fetch(base+uploaded.url);assert.equal(asset.status,200);assert.equal(asset.headers.get("content-type"),"image/png");assert.equal((await asset.arrayBuffer()).byteLength,png.length);
+const folder=await mkdtemp(join(tmpdir(),"julie-studio-test-")),videoPath=join(folder,"sample.mp4");
+const ffmpeg=spawnSync("ffmpeg",["-v","error","-f","lavfi","-i","color=c=black:s=32x32:d=1","-c:v","libx264","-pix_fmt","yuv420p",videoPath]);
+assert.equal(ffmpeg.status,0,"Video fixture generation failed");
+const video=new FormData();video.append("file",new File([await readFile(videoPath)],"sample.mp4",{type:"video/mp4"}));
+const clip=await call("/api/admin/upload",video);assert.equal(clip.type,"video");
+const range=await fetch(base+clip.url,{headers:{Range:"bytes=0-15"}});assert.equal(range.status,206);assert.equal((await range.arrayBuffer()).byteLength,16);assert.ok(range.headers.get("content-range").startsWith("bytes 0-15/"));
+const svg=new FormData();svg.append("file",new File(["<svg/>"],"bad.svg",{type:"image/svg+xml"}));await call("/api/admin/upload",svg,400);
+await call("/api/enquiries",{name:"Local test",email:"test@example.com",phone:"0400000000",message:"Test product enquiry",kind:"Product enquiry",productUrl:base+"/products/test-gown-0",website:""});
+assert.ok((await call("/api/enquiries")).items.some(e=>e.message==="Test product enquiry"&&e.productUrl.endsWith("/products/test-gown-0")));
+for(const path of ["/","/admin","/pages/custom-bridal","/pages/about-us","/pages/retailers","/pages/contact-us","/products/test-gown-0","/collections/"+col.slug]){
+ const response=await fetch(base+path,{headers:{cookie}});assert.equal(response.status,200,path);assert.ok((await response.text()).includes("<html"),path);
+}
+envelope=await call("/api/admin/data",{data:original,revision:envelope.revision,publish:true});
+assert.deepEqual((await call("/api/admin/data")).data,original);
+console.log("PASS: access control, malformed cookies, content migration, draft isolation, panel/page changes, publishing, stale-write protection, validation, hidden prices, 5 similar-price recommendations, image/video uploads, byte-range playback, SVG rejection, enquiry persistence and direct page routes.");

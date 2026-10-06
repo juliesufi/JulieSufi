@@ -1,0 +1,4 @@
+Published version 11
+Commit ef28869640e9e0b99823f7e8b20e355e3df100ea
+Exported 6 October 2026
+Supersedes version 10. Read DEVELOPER_HANDOVER.md first.
