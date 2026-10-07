@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { getMysqlD1 } from "./mysql-d1";
 import type {
   SiteCollection,
   SiteData,
@@ -30,14 +31,12 @@ const starterSettings: SiteSettings = {
   announcement: "Melbourne bridal couture · private appointments now open",
   heroTitle: "A study in silhouette.",
   heroSubtitle: "Made-to-measure couture for the modern bride.",
-  heroImageUrl:
-    "https://emabride.com/images/stories/virtuemart/product/235-3.jpg",
+  heroImageUrl: "/images/hero-gown.jpg",
   heroVideoUrl: "",
   storyTitle: "The atelier, reimagined.",
   storyCopy:
     "Julie Sufi creates gowns with a quiet sense of drama — considered proportions, tactile fabrics and a finish that feels entirely your own. Every piece begins in Melbourne and is shaped around the woman who will wear it.",
-  storyImageUrl:
-    "https://www.sugarandspice.com.au/cdn/shop/files/99307_Yakira_JAS_FW24_SS_DSCF2407.jpg?v=1701756810",
+  storyImageUrl: "/images/story-atelier.jpg",
   contactEmail: "appointments@juliesufi.com.au",
   contactPhone: "+61 3 9000 0000",
   studioLocation: "Melbourne, Victoria",
@@ -106,8 +105,7 @@ const starterCollections: SiteCollection[] = [
     slug: "the-atelier-edit",
     name: "The Atelier Edit",
     description: "Sculptural forms and luminous layers for the ceremony.",
-    imageUrl:
-      "https://static.wixstatic.com/media/e436f4_e0d0e5778f434b6d9e55201018fb4811~mv2.jpg/v1/fill/w_980,h_1470,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/e436f4_e0d0e5778f434b6d9e55201018fb4811~mv2.jpg",
+    imageUrl: "/images/collection-atelier-edit.jpg",
     sortOrder: 0,
     published: true,
   },
@@ -116,8 +114,7 @@ const starterCollections: SiteCollection[] = [
     slug: "after-dark",
     name: "After Dark",
     description: "A softer, more fluid language for the second look.",
-    imageUrl:
-      "https://wezoree.com/upload/medialibrary/000photo20/55.jpg",
+    imageUrl: "/images/collection-after-dark.jpg",
     sortOrder: 1,
     published: true,
   },
@@ -126,8 +123,7 @@ const starterCollections: SiteCollection[] = [
     slug: "made-to-measure",
     name: "Made to Measure",
     description: "Personalised silhouettes, developed around you.",
-    imageUrl:
-      "https://cdn.wezoree.com/upload/user_photos/15787/preview-photographers-derando-studio-wedding-portfolio-photo-318023.jpg",
+    imageUrl: "/images/collection-made-to-measure.jpg",
     sortOrder: 2,
     published: true,
   },
@@ -191,7 +187,7 @@ function runtimeEnv() {
 }
 
 export function getD1(): D1Database | null {
-  return runtimeEnv().DB ?? null;
+  return getMysqlD1() ?? runtimeEnv().DB ?? null;
 }
 
 function booleanValue(value: number | boolean) {

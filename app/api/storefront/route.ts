@@ -11,7 +11,8 @@ export async function GET(request: Request) {
         const v = await readStudio();
         return Response.json(publicData(preview ? v.draft : v.live), { headers });
     }
-    catch {
+    catch (error) {
+        console.error("Storefront load failed", error);
         return Response.json({ error: "The website could not load. Please try again." }, { status: 503, headers });
     }
 }

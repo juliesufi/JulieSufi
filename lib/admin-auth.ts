@@ -21,9 +21,17 @@ export function getAdminPasscode() {
   throw new Error("Admin password is not configured.");
 }
 
+function getAdminSessionSecret() {
+  const configured = runtimeEnv().ADMIN_SESSION_SECRET;
+  if (configured) return configured;
+  if (typeof process !== "undefined" && process.env.ADMIN_SESSION_SECRET) {
+    return process.env.ADMIN_SESSION_SECRET;
+  }
+  throw new Error("Admin session security is not configured.");
+}
+
 async function signingKey() {
-  const signingSecret = runtimeEnv().ADMIN_SESSION_SECRET;
-  if (!signingSecret) throw new Error("Admin session security is not configured.");
+  const signingSecret = getAdminSessionSecret();
   const secret = `${signingSecret}::${getAdminPasscode()}::admin-v2`;
   return crypto.subtle.importKey(
     "raw",

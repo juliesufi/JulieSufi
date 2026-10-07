@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import vinext from "vinext";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
+import { mysqlDevProxy, mysqlDevProxyOrigin } from "./build/mysql-dev-plugin";
 import { sites } from "./build/sites-vite-plugin";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -13,29 +16,83 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
-const localBindingConfig = {
-  main: "vinext/server/fetch-handler",
-  compatibility_flags: ["nodejs_compat"],
-  d1_databases: d1
-    ? [
-        {
-          binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
-        },
-      ]
-    : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: "site-creator-r2",
-        },
-      ]
-    : [],
-};
+function loadDevVars(root: string) {
+  try {
+    const text = readFileSync(resolve(root, ".dev.vars"), "utf8");
+    const vars: Record<string, string> = {};
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const index = trimmed.indexOf("=");
+      if (index <= 0) continue;
+      vars[trimmed.slice(0, index)] = trimmed.slice(index + 1);
+    }
+    return vars;
+  } catch {
+    return {};
+  }
+}
 
-export default defineConfig(async () => {
+function workerVars(loaded: Record<string, string>) {
+  const vars: Record<string, string> = {};
+  for (const key of [
+    "MYSQL_HOST",
+    "MYSQL_PORT",
+    "MYSQL_USER",
+    "MYSQL_PASSWORD",
+    "MYSQL_DATABASE",
+    "ADMIN_PASSCODE",
+    "ADMIN_SESSION_SECRET",
+    "INSTAGRAM_ENCRYPTION_KEY",
+    "MYSQL_DEV_PROXY_ORIGIN",
+    "MYSQL_DEV_PROXY_PORT",
+  ]) {
+    const value = loaded[key];
+    if (value !== undefined && value !== "") vars[key] = value;
+  }
+  if (loaded.MYSQL_DATABASE) {
+    vars.MYSQL_HOST ??= "127.0.0.1";
+    vars.MYSQL_PORT ??= "3306";
+    vars.MYSQL_USER ??= "root";
+    vars.MYSQL_PASSWORD ??= "";
+    vars.MYSQL_DATABASE = loaded.MYSQL_DATABASE;
+    vars.MYSQL_DEV_PROXY_ORIGIN ??= mysqlDevProxyOrigin();
+  }
+  return vars;
+}
+
+export default defineConfig(async ({ mode }) => {
+  // Prefer Wrangler `.dev.vars` over `.env` so local Worker auth matches Cloudflare bindings.
+  const loaded = { ...loadEnv(mode, process.cwd(), ""), ...loadDevVars(process.cwd()) };
+  for (const [key, value] of Object.entries(loaded)) {
+    if (value !== "") process.env[key] ??= value;
+  }
+  process.env.MYSQL_DEV_PROXY_ORIGIN ??=
+    loaded.MYSQL_DEV_PROXY_ORIGIN ?? mysqlDevProxyOrigin();
+
+  const localBindingConfig = {
+    main: "vinext/server/fetch-handler",
+    compatibility_flags: ["nodejs_compat"],
+    vars: workerVars(loaded),
+    d1_databases: d1
+      ? [
+          {
+            binding: d1,
+            database_name: "site-creator-d1",
+            database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          },
+        ]
+      : [],
+    r2_buckets: r2
+      ? [
+          {
+            binding: r2,
+            bucket_name: "site-creator-r2",
+          },
+        ]
+      : [],
+  };
+
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
   process.env.CLOUDFLARE_CF_FETCH_ENABLED ??= "false";
   process.env.WRANGLER_SEND_METRICS ??= "false";
@@ -55,8 +112,13 @@ export default defineConfig(async () => {
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
+    // Keep vinext routing modules bundled so relative imports (e.g. route-trie → utils.js) resolve on Windows.
+    ssr: {
+      noExternal: ["vinext"],
+    },
     plugins: [
       vinext(),
+      ...(loaded.MYSQL_DATABASE ? [mysqlDevProxy()] : []),
       sites({ mockAuth: !managedLinux }),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
