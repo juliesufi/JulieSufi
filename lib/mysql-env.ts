@@ -21,13 +21,15 @@ function readEnv(name: string) {
 }
 
 export function mysqlConfig(): MysqlConfig | null {
-  const database = readEnv("MYSQL_DATABASE") ?? readEnv("DATABASE_NAME");
+  // GoDaddy Node.js Hosting injects DB_* when a hosted database is attached.
+  // MYSQL_* remains the local development fallback.
+  const database = process.env.DB_NAME ?? readEnv("MYSQL_DATABASE") ?? readEnv("DATABASE_NAME");
   if (!database) return null;
   return {
-    host: readEnv("MYSQL_HOST") ?? "127.0.0.1",
-    port: Number(readEnv("MYSQL_PORT") ?? "3306"),
-    user: readEnv("MYSQL_USER") ?? "root",
-    password: readEnv("MYSQL_PASSWORD") ?? "",
+    host: process.env.DB_HOST ?? readEnv("MYSQL_HOST") ?? "127.0.0.1",
+    port: Number(process.env.DB_PORT ?? readEnv("MYSQL_PORT") ?? "3306"),
+    user: process.env.DB_USER ?? readEnv("MYSQL_USER") ?? "root",
+    password: process.env.DB_PASSWORD ?? readEnv("MYSQL_PASSWORD") ?? "",
     database,
   };
 }
