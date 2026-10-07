@@ -1,0 +1,17 @@
+---
+description: Julie Sufi project context for AI agents
+alwaysApply: true
+---
+
+# Julie Sufi
+
+Bridal storefront + admin studio. Read `AGENTS.md` first; product details in `DEVELOPER_HANDOVER.md`. Ignore generic starter `README.md`.
+
+## Hard rules
+
+- CMS content lives in `site_settings.studio_v2` (`lib/studio-store.ts` / `lib/studio-model.ts`), not only legacy tables.
+- Never wipe DB content or R2 media on deploy; Save & publish is separate from code.
+- Admin auth fail-closed: `ADMIN_PASSCODE` + `ADMIN_SESSION_SECRET` via `lib/admin-auth.ts`.
+- `MYSQL_DATABASE` set → MySQL adapter + `public/` media; else D1 + R2.
+- Most pages re-export `components/boutique.tsx`; admin UI is `components/studio.tsx`.
+- Use pnpm; Node `>=22.13.0`. Do not commit `.dev.vars`.
