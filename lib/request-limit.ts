@@ -1,7 +1,19 @@
 import { getD1 } from "./site-data";
 
-// Atomic-enough per-IP fixed windows, shared across Worker instances. Never store raw IPs.
-// Uses portable upsert + read so the same code works on D1/SQLite and the MySQL dev proxy.
+function clientAddress(request: Request) {
+  const cloudflare = request.headers.get("cf-connecting-ip");
+  if (cloudflare) return cloudflare.trim();
+  if (process.env.TRUST_PROXY === "1") {
+    const realIp = request.headers.get("x-real-ip")?.trim();
+    if (realIp) return realIp;
+    const forwarded = request.headers.get("x-forwarded-for");
+    const lastHop = forwarded?.split(",").map((part) => part.trim()).filter(Boolean).at(-1);
+    if (lastHop) return lastHop;
+  }
+  return "unknown";
+}
+
+// Fixed windows per client address. The address is hashed before it is stored.
 export async function requestAllowed(
   request: Request,
   scope: "login" | "enquiry",
@@ -10,7 +22,7 @@ export async function requestAllowed(
 ) {
   const db = getD1();
   if (!db) throw new Error("Request protection unavailable");
-  const identity = request.headers.get("cf-connecting-ip") || "unknown";
+  const identity = clientAddress(request);
   const hash = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(scope + ":" + identity),

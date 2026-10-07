@@ -6,7 +6,7 @@ on:
       - staging
 
 concurrency:
-  group: cloudflare-staging
+  group: godaddy-staging
   cancel-in-progress: false
 
 permissions:
@@ -15,9 +15,23 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      GODADDY_SSH_HOST: ${{ secrets.GODADDY_SSH_HOST }}
+      GODADDY_SSH_USER: ${{ secrets.GODADDY_SSH_USER }}
+      GODADDY_SSH_KEY: ${{ secrets.GODADDY_SSH_KEY }}
+      GODADDY_SSH_PORT: ${{ secrets.GODADDY_SSH_PORT }}
+      GODADDY_APP_PATH: ${{ secrets.GODADDY_APP_PATH }}
     steps:
       - name: Check out staging
         uses: actions/checkout@v4
+
+      - name: Require GoDaddy deploy secrets
+        run: |
+          set -eu
+          test -n "$GODADDY_SSH_HOST" || { echo "Add the GODADDY_SSH_HOST secret."; exit 1; }
+          test -n "$GODADDY_SSH_USER" || { echo "Add the GODADDY_SSH_USER secret."; exit 1; }
+          test -n "$GODADDY_SSH_KEY" || { echo "Add the GODADDY_SSH_KEY secret."; exit 1; }
+          test -n "$GODADDY_APP_PATH" || { echo "Add the GODADDY_APP_PATH secret."; exit 1; }
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -33,32 +47,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prepare the staging database and media bucket
-        run: pnpm run cf:prepare
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Apply new database schema
-        run: pnpm exec wrangler d1 migrations apply julie-sufi-staging --remote --config wrangler.jsonc
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Build
         run: pnpm run build
 
-      - name: Deploy the Worker
-        run: pnpm exec wrangler deploy --config dist/server/wrangler.json
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Open the SSH key
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$GODADDY_SSH_KEY" > ~/.ssh/godaddy
+          chmod 600 ~/.ssh/godaddy
+          port="${GODADDY_SSH_PORT:-22}"
+          ssh-keyscan -p "$port" "$GODADDY_SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Set admin secrets
-        run: pnpm run cf:secrets
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          ADMIN_PASSCODE: ${{ secrets.ADMIN_PASSCODE }}
-          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
-          INSTAGRAM_ENCRYPTION_KEY: ${{ secrets.INSTAGRAM_ENCRYPTION_KEY }}
+      - name: Upload the app
+        run: |
+          set -eu
+          port="${GODADDY_SSH_PORT:-22}"
+          remote="${GODADDY_SSH_USER}@${GODADDY_SSH_HOST}"
+          ssh_cmd="ssh -i ~/.ssh/godaddy -p ${port} -o StrictHostKeyChecking=yes"
+          ssh -i ~/.ssh/godaddy -p "$port" -o StrictHostKeyChecking=yes "$remote" "mkdir -p '$GODADDY_APP_PATH/scripts' '$GODADDY_APP_PATH/public' '$GODADDY_APP_PATH/tmp'"
+          rsync -az --delete -e "$ssh_cmd" dist/ "$remote:$GODADDY_APP_PATH/dist/"
+          rsync -az --delete -e "$ssh_cmd" node_modules/ "$remote:$GODADDY_APP_PATH/node_modules/"
+          rsync -az -e "$ssh_cmd" server.mjs package.json "$remote:$GODADDY_APP_PATH/"
+          rsync -az -e "$ssh_cmd" scripts/mysql-schema.sql scripts/apply-mysql-schema.mjs "$remote:$GODADDY_APP_PATH/scripts/"
+          rsync -az -e "$ssh_cmd" public/ "$remote:$GODADDY_APP_PATH/public/"
+
+      - name: Apply new database tables
+        run: |
+          set -eu
+          port="${GODADDY_SSH_PORT:-22}"
+          ssh -i ~/.ssh/godaddy -p "$port" -o StrictHostKeyChecking=yes \
+            "${GODADDY_SSH_USER}@${GODADDY_SSH_HOST}" \
+            "cd '$GODADDY_APP_PATH' && node scripts/apply-mysql-schema.mjs && mkdir -p tmp && touch tmp/restart.txt"
