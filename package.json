@@ -14,6 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:verify": "node scripts/verify-mysql.mjs",
     "verify:vinext": "node scripts/verify-vinext.mjs",
+    "cf:prepare": "node scripts/cloudflare-staging.mjs prepare",
+    "cf:secrets": "node scripts/cloudflare-staging.mjs secrets",
     "repair:deps": "powershell -ExecutionPolicy Bypass -File scripts/repair-deps.ps1"
   },
   "dependencies": {

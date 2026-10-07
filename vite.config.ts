@@ -70,27 +70,42 @@ export default defineConfig(async ({ mode }) => {
   process.env.MYSQL_DEV_PROXY_ORIGIN ??=
     loaded.MYSQL_DEV_PROXY_ORIGIN ?? mysqlDevProxyOrigin();
 
-  const localBindingConfig = {
-    main: "vinext/server/fetch-handler",
-    compatibility_flags: ["nodejs_compat"],
-    vars: workerVars(loaded),
-    d1_databases: d1
-      ? [
-          {
-            binding: d1,
-            database_name: "site-creator-d1",
-            database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
-          },
-        ]
-      : [],
-    r2_buckets: r2
-      ? [
-          {
-            binding: r2,
-            bucket_name: "site-creator-r2",
-          },
-        ]
-      : [],
+  const localVars = workerVars(loaded);
+  // wrangler.jsonc owns staging D1/R2 bindings. Fill those in only when the
+  // file has none, so a production build does not swap in the local placeholders.
+  const cloudflareConfig = (workerConfig: {
+    compatibility_flags?: string[];
+    d1_databases?: unknown[];
+    r2_buckets?: unknown[];
+  }) => {
+    const flags = new Set(workerConfig.compatibility_flags ?? []);
+    flags.add("nodejs_compat");
+    return {
+      main: "vinext/server/fetch-handler",
+      compatibility_flags: [...flags],
+      ...(Object.keys(localVars).length > 0 ? { vars: localVars } : {}),
+      ...(!workerConfig.d1_databases?.length && d1
+        ? {
+            d1_databases: [
+              {
+                binding: d1,
+                database_name: "site-creator-d1",
+                database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+              },
+            ],
+          }
+        : {}),
+      ...(!workerConfig.r2_buckets?.length && r2
+        ? {
+            r2_buckets: [
+              {
+                binding: r2,
+                bucket_name: "site-creator-r2",
+              },
+            ],
+          }
+        : {}),
+    };
   };
 
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
@@ -123,7 +138,7 @@ export default defineConfig(async ({ mode }) => {
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
-        config: localBindingConfig,
+        config: cloudflareConfig,
       }),
     ],
   };
