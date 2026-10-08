@@ -1,5 +1,6 @@
 import { isAdminRequest } from "@/lib/admin-auth";
 import { beginInstagram, configureInstagram, disconnectInstagram, instagramStatus, syncInstagram } from "@/lib/instagram";
+import { isSameOriginRequest } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
 const headers = {"Cache-Control":"private, no-store"};
 export async function GET(request: Request) {
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   if (!await isAdminRequest(request)) return Response.json({error:"Studio access required."}, {status:401, headers});
-  if (request.headers.get("origin") !== new URL(request.url).origin) return Response.json({error:"Invalid origin."}, {status:403, headers});
+  if (!isSameOriginRequest(request)) return Response.json({error:"Invalid origin."}, {status:403, headers});
   try {
     const input = await request.text();
     if (input.length > 4096) return Response.json({error:"Request too large."}, {status:413, headers});

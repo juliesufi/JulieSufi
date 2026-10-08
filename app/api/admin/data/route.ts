@@ -1,4 +1,5 @@
 import { isAdminRequest } from "@/lib/admin-auth";
+import { isSameOriginRequest } from "@/lib/request-origin";
 import { studioSchema } from "@/lib/studio-model";
 import { readStudio, saveStudio } from "@/lib/studio-store";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     if (!await isAdminRequest(request))
         return Response.json({ error: "Studio access required." }, { status: 401, headers });
-    if (request.headers.get("origin") && request.headers.get("origin") !== new URL(request.url).origin)
+    if (!isSameOriginRequest(request))
         return Response.json({ error: "Invalid origin." }, { status: 403 });
     try {
         const input = await request.text();

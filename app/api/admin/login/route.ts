@@ -1,8 +1,9 @@
 import { createAdminSession, getAdminPasscode } from "../../../../lib/admin-auth";
 import {requestAllowed} from "@/lib/request-limit";
+import {isSameOriginRequest} from "@/lib/request-origin";
 export async function POST(request: Request) {
  const headers={"Cache-Control":"private, no-store"};
- if(request.headers.get("origin") && request.headers.get("origin")!==new URL(request.url).origin)
+ if(!isSameOriginRequest(request))
   return Response.json({error:"Invalid origin."},{status:403,headers});
  try {
   const expected=getAdminPasscode();

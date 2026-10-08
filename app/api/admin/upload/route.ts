@@ -1,12 +1,13 @@
 import { env } from "cloudflare:workers";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { writeMediaStream } from "@/lib/media-storage";
+import { isSameOriginRequest } from "@/lib/request-origin";
 import { usePublicMediaStorage } from "@/lib/use-public-media";
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
     if (!await isAdminRequest(request))
         return Response.json({ error: "Studio access required." }, { status: 401 });
-    if (request.headers.get("origin") && request.headers.get("origin") !== new URL(request.url).origin)
+    if (!isSameOriginRequest(request))
         return Response.json({ error: "Invalid origin." }, { status: 403 });
     try {
         const file = (await request.formData()).get("file");

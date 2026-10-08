@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { requestPublicOrigin } from "./request-origin";
 
 type RuntimeEnv = {
   ADMIN_PASSCODE?: string;
@@ -99,13 +100,15 @@ export async function isAdminRequest(request: Request) {
   } catch { return false; }
 }
 
+function secureCookieFlag(request: Request) {
+  return requestPublicOrigin(request).startsWith("https:") ? "; Secure" : "";
+}
+
 export async function createAdminSession(request: Request) {
   const token = await sessionToken();
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${COOKIE_NAME}=${token}; Max-Age=${MAX_AGE}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+  return `${COOKIE_NAME}=${token}; Max-Age=${MAX_AGE}; Path=/; HttpOnly; SameSite=Lax${secureCookieFlag(request)}`;
 }
 
 export function clearAdminSession(request: Request) {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${secure}`;
+  return `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${secureCookieFlag(request)}`;
 }

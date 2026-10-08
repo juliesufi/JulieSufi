@@ -2,10 +2,11 @@ import { isAdminRequest } from "@/lib/admin-auth";
 import { getD1 } from "@/lib/site-data";
 import { z } from "zod";
 import { requestAllowed } from "@/lib/request-limit";
+import { isSameOriginRequest } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
 const schema = z.object({ name: z.string().trim().min(1).max(200), email: z.string().trim().email().max(300), phone: z.string().trim().min(1).max(100).refine(v => v.replace(/\D/g, "").length >= 6, "Enter a valid phone number"), message: z.string().min(1).max(10000), kind: z.string().max(200), productUrl: z.string().max(2000), website: z.string().max(200).optional() });
 export async function POST(request: Request) {
-    if (request.headers.get("origin") && request.headers.get("origin") !== new URL(request.url).origin)
+    if (!isSameOriginRequest(request))
         return Response.json({ error: "Invalid origin." }, { status: 403 });
     try {
         if (!await requestAllowed(request,"enquiry",5,600))
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
 const updateSchema = z.object({action:z.enum(["read","unread","delete","restore"]),ids:z.array(z.string().uuid()).min(1).max(50)});
 export async function PATCH(request: Request) {
     if (!await isAdminRequest(request)) return Response.json({error:"Studio access required."},{status:401});
-    if (request.headers.get("origin") !== new URL(request.url).origin) return Response.json({error:"Invalid origin."},{status:403});
+    if (!isSameOriginRequest(request)) return Response.json({error:"Invalid origin."},{status:403});
     try {
         const raw = await request.text();
         if(raw.length > 10000) return Response.json({error:"Too many enquiries selected."},{status:413});

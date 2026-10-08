@@ -11,7 +11,7 @@ import {renderToStaticMarkup} from "react-dom/server";
 const sqlite=new DatabaseSync(":memory:");
 sqlite.exec("CREATE TABLE site_settings (key TEXT PRIMARY KEY,value_json TEXT NOT NULL,updated_at TEXT NOT NULL)");
 const db={prepare(sql){let values=[];return {bind(...args){values=args;return this},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return {results:sqlite.prepare(sql).all(...values)}},async run(){return sqlite.prepare(sql).run(...values)}}},async batch(statements){sqlite.exec("BEGIN");try{const r=await Promise.all(statements.map(s=>s.run()));sqlite.exec("COMMIT");return r}catch(e){sqlite.exec("ROLLBACK");throw e}}};
-const context=vm.createContext({console,Request,Response,URL,URLSearchParams,crypto,Date,structuredClone,setTimeout,clearTimeout});
+const context=vm.createContext({console,Request,Response,URL,URLSearchParams,crypto,Date,structuredClone,setTimeout,clearTimeout,process});
 async function module(path,imports,append=""){
  const source=fs.readFileSync(path,"utf8")+append;
  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
@@ -19,7 +19,8 @@ async function module(path,imports,append=""){
  await m.link(name=>{const exports=imports[name];if(!exports)throw Error("Unexpected import "+name);return new vm.SyntheticModule(Object.keys(exports),function(){for(const[k,v]of Object.entries(exports))this.setExport(k,v)},{context})});
  await m.evaluate();return m.namespace;
 }
-const route=await module("app/api/enquiries/route.ts",{"@/lib/request-limit":{requestAllowed:async()=>true},"@/lib/admin-auth":{isAdminRequest:async r=>r.headers.get("cookie")==="test"},"@/lib/site-data":{getD1:()=>db},zod:{z}});
+const origin=await module("lib/request-origin.ts",{});
+const route=await module("app/api/enquiries/route.ts",{"@/lib/request-limit":{requestAllowed:async()=>true},"@/lib/admin-auth":{isAdminRequest:async r=>r.headers.get("cookie")==="test"},"@/lib/site-data":{getD1:()=>db},"@/lib/request-origin":origin,zod:{z}});
 async function request(method,query="",body,status=200,extra={}){
  const r=await route[method](new Request("https://test.example/api/enquiries"+query,{method,headers:{cookie:"test",origin:"https://test.example",...extra},body:body===undefined?undefined:JSON.stringify(body)}));
  const result=await r.json();assert.equal(r.status,status,JSON.stringify(result));return result;
