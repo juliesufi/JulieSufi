@@ -6,10 +6,8 @@ export const mediaSchema = z.object({ id, url, type: z.enum(["image", "video"]),
 export type Media = z.infer<typeof mediaSchema>;
 export const panelSchema = z.object({ id, label: text, type: z.enum(["hero", "collections", "split", "instagram", "text", "contact"]), shown: z.boolean(), title: text, body: text, height: z.number().min(0).max(100).optional(), collectionIds: z.array(id).optional(), reelUrls: z.array(z.string().regex(/^https:\/\/(www\.)?instagram\.com\/(?:reel|p)\/[A-Za-z0-9_-]+\/?$/)).optional(), media: z.array(mediaSchema), linkLabel: text, link: z.string().max(250).refine(v => !v || /^\/(?!\/)[a-z0-9\-/]*$/.test(v)), reelUrl: z.string().max(1000).refine(v => !v || /^https:\/\/(www\.)?instagram\.com\/reel\/[A-Za-z0-9_-]+\/?$/.test(v), "Use a full Instagram reel URL.") });
 export type Panel = z.infer<typeof panelSchema>;
-export const productSchema = z.object({ id, slug, name: z.string().min(1).max(250), description: text, price: z.number().min(0).max(10000000).nullable(), showPrice: z.boolean(), published: z.boolean(), media: z.array(mediaSchema) });
-export type Product = z.infer<typeof productSchema> & {
-    recommendations?: string[];
-};
+export const productSchema = z.object({ id, slug, name: z.string().min(1).max(250), description: text, price: z.number().min(0).max(10000000).nullable(), showPrice: z.boolean(), published: z.boolean(), media: z.array(mediaSchema), recommendations: z.array(id).max(5).optional() });
+export type Product = z.infer<typeof productSchema>;
 export const collectionSchema = z.object({ id, slug, name: z.string().min(1).max(250), description: text, published: z.boolean(), showPrices: z.boolean().optional(), showPriceRequest: z.boolean().optional(), heroShown: z.boolean().optional(), heroHeight: z.number().min(0).max(100).optional(), hero: z.array(mediaSchema), cover: z.array(mediaSchema), products: z.array(productSchema) });
 export type Collection = Omit<z.infer<typeof collectionSchema>, "products"> & {
     products: Product[];
@@ -80,7 +78,10 @@ export function publicData(data: StudioData): StudioData {
             const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
             [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
         }
-        p.recommendations = candidates.slice(0, 5).map(q => q.id);
+        const generated = candidates.slice(0, 5).map(q => q.id);
+        p.recommendations = generated.length
+            ? generated
+            : (p.recommendations ?? []).filter(productId => products.some(q => q.id === productId));
     }
     for (const p of products)
         if (!result.collections.find(c => c.products.some(q => q.id === p.id))?.showPrices)

@@ -11,8 +11,8 @@
 .b-editorial .b-panel-copy h2{margin-top:0;margin-bottom:20px}
 .b-editorial .b-panel-copy .b-prose{margin-top:0}
 .b-editorial.b-no-media{grid-template-columns:minmax(0,1fr)}
-.b-collection .b-media,.b-section[style] .b-collection .b-media{height:auto;aspect-ratio:2/3;background:transparent}
-.b-collection .b-media img,.b-collection .b-media video{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.b-collection .b-media,.b-section[style] .b-collection .b-media{height:auto;aspect-ratio:auto;background:transparent}
+.b-collection .b-media img,.b-collection .b-media video{position:static;display:block;width:100%;height:auto;object-fit:contain}
 .b-catalogue-card .b-card-image img,.b-catalogue-card .b-card-image video{object-fit:contain;transform:none}
 .b-catalogue-card .b-product-card:hover img{transform:none}
 .b-all-collections-link{margin:36px auto 0;display:table}
