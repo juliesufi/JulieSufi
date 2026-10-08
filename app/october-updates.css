@@ -1,6 +1,7 @@
 /* Full-frame editorial photographs share the same layout at every breakpoint.
    The panel slider controls surrounding spacing, never crops the photograph. */
 .b-media img,.b-media video{object-fit:contain;object-position:center}
+.b-hero>.b-media>video,.b-hero>.b-media>a>video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
 .b-contact>.b-media,.b-contact[style]>.b-media,.b-text>.b-media,.b-text[style]>.b-media{height:auto;align-self:start}
 .b-contact>.b-media img,.b-contact>.b-media video,.b-text>.b-media img,.b-text>.b-media video{display:block;height:auto;width:100%}
 .s-height-preview img,.s-height-preview video{object-fit:contain}

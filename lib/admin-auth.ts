@@ -12,21 +12,24 @@ function runtimeEnv() {
   return env as unknown as RuntimeEnv;
 }
 
-export function getAdminPasscode() {
-  const configured = runtimeEnv().ADMIN_PASSCODE;
+function configuredSecret(name: keyof RuntimeEnv) {
+  // GoDaddy injects secrets on process.env before the server starts.
+  // Prefer that over a worker binding so a blank or stale binding cannot hide them.
+  if (typeof process !== "undefined" && process.env[name]) return process.env[name];
+  const configured = runtimeEnv()[name];
   if (configured) return configured;
-  if (typeof process !== "undefined" && process.env.ADMIN_PASSCODE) {
-    return process.env.ADMIN_PASSCODE;
-  }
+  return undefined;
+}
+
+export function getAdminPasscode() {
+  const configured = configuredSecret("ADMIN_PASSCODE");
+  if (configured) return configured;
   throw new Error("Admin password is not configured.");
 }
 
 function getAdminSessionSecret() {
-  const configured = runtimeEnv().ADMIN_SESSION_SECRET;
+  const configured = configuredSecret("ADMIN_SESSION_SECRET");
   if (configured) return configured;
-  if (typeof process !== "undefined" && process.env.ADMIN_SESSION_SECRET) {
-    return process.env.ADMIN_SESSION_SECRET;
-  }
   throw new Error("Admin session security is not configured.");
 }
 
