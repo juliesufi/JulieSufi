@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { devListenArgs } from "./dev-listen-args.mjs";
 import { readExecutionProfile } from "./execution-profile.mjs";
 
 const [command, ...args] = process.argv.slice(2);
@@ -19,5 +20,11 @@ const cli = new URL(managedLinux
   ? "../node_modules/vite/bin/vite.js"
   : "../node_modules/vinext/dist/cli.js", import.meta.url);
 process.argv = [process.execPath, fileURLToPath(cli), command,
-  ...(!managedLinux && command === "dev" ? ["--port", "5173"] : []), ...args];
+  ...devListenArgs({
+    command,
+    managedLinux,
+    port: process.env.PORT,
+    host: process.env.HOST,
+    extraArgs: args,
+  })];
 await import(cli.href);

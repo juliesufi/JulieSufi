@@ -1,0 +1,29 @@
+---
+description: GoDaddy Node.js Hosting deploy for Julie Sufi
+alwaysApply: true
+---
+
+# GoDaddy deployment
+
+Production is GoDaddy Node.js Hosting, app `github-import` (`jn9mzbw5cj`). Do not add Cloudflare deploy config.
+
+## Ship code
+
+- Work on `staging`. A push does not deploy by itself.
+- After the push, open the app overview and click **Update Preview**. That pulls `juliesufi/JulieSufi` branch `staging`, builds, and updates `https://jn9mzbw5cj.preview.c40.airoapp.ai/`.
+- **Publish to Live** is a separate click. Put `ADMIN_PASSCODE`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY=1` on the Publish secrets list first. Add `INSTAGRAM_ENCRYPTION_KEY` only when Instagram is connected, using the existing key.
+- `.github/workflows/deploy-staging.yml` is not this host’s deploy. A failing SSH check there is not a failed GoDaddy deploy.
+- `vinext` and `mysql2` stay in `dependencies`. The start script stays `node server.mjs`.
+- Preview starts `pnpm run dev`. When `PORT` is set, that process must listen on `0.0.0.0:$PORT`. Local dev without `PORT` stays on port 5173.
+
+## Database
+
+- Production reads GoDaddy’s injected `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`. Keep those `process.env.DB_*` reads in `lib/mysql-env.ts`. Do not override `DB_*` in the GoDaddy UI, and do not put local `MYSQL_*` values there.
+- **Update Preview** ships code. The hosted database is not replaced, and local MySQL rows and `public/` uploads are not copied.
+- On the first MySQL query, `lib/mysql-node-d1.ts` applies `scripts/mysql-schema.sql`. Missing tables are created. Existing `studio_v2` content, enquiries, and media stay.
+- Preview and Publish share one hosted database. A schema change applies to both.
+
+```ts
+// lib/mysql-env.ts — hosted DB_* wins; MYSQL_* is the local fallback
+const database = process.env.DB_NAME ?? readEnv("MYSQL_DATABASE");
+```

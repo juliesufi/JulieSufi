@@ -27,6 +27,8 @@ function loadDevVars(root: string) {
 }
 
 export default defineConfig(async ({ mode }) => {
+  const platformPort = Number(process.env.PORT);
+  const hosted = Number.isInteger(platformPort) && platformPort > 0 && platformPort <= 65535;
   const loaded = { ...loadEnv(mode, process.cwd(), ""), ...loadDevVars(process.cwd()) };
   for (const [key, value] of Object.entries(loaded)) {
     if (value !== "") process.env[key] ??= value;
@@ -46,7 +48,11 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     server: {
-      ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
+      ...(hosted
+        ? { host: "0.0.0.0", port: platformPort, strictPort: true, allowedHosts: true }
+        : managedLinux
+          ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }
+          : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
     ssr: {

@@ -1,0 +1,30 @@
+---
+description: Local setup for Julie Sufi (Node, pnpm, MySQL, .dev.vars)
+alwaysApply: true
+---
+
+# Local setup
+
+Node `>=22.13.0` and the pnpm version pinned in `package.json`. Ignore the generic starter `README.md`.
+
+## First run
+
+1. Copy `.dev.vars.example` to `.dev.vars`. Never commit `.dev.vars`, `.env`, or secret values.
+2. Fill `MYSQL_*` for a local database named `juliesufi`. `MYSQL_DATABASE` switches the app to the MySQL adapter and `public/` media.
+3. Set `ADMIN_PASSCODE` and `ADMIN_SESSION_SECRET` in `.dev.vars`. Admin auth fails closed without both.
+4. Install and start: `pnpm install`, then `pnpm run dev` (HMR on port 5173, MySQL dev proxy on 8788).
+5. Apply schema with `pnpm run db:apply`. Check the connection with `pnpm run db:verify`.
+
+## Schema and checks
+
+- Schema changes belong in `scripts/mysql-schema.sql` as `CREATE TABLE IF NOT EXISTS` or `ALTER` only. No `DROP`, `DELETE`, `TRUNCATE`, `UPDATE`, `REPLACE`, or `INSERT`.
+- Before a deploy, run `pnpm run build`.
+- `scripts/test-studio.mjs` needs `TEST_ADMIN_PASSCODE` and must stay pointed at the local preview.
+
+```bash
+# local only — do not copy these values into GoDaddy
+MYSQL_HOST=127.0.0.1
+MYSQL_DATABASE=juliesufi
+ADMIN_PASSCODE=
+ADMIN_SESSION_SECRET=
+```
