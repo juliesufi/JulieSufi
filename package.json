@@ -10,7 +10,7 @@
     "install:ci": "bash scripts/install-pnpm.sh",
     "dev": "node scripts/run-framework.mjs dev",
     "build": "node scripts/run-framework.mjs build",
-    "start": "node server.mjs",
+    "start": "node scripts/ensure-dist.mjs && node server.mjs",
     "db:apply": "node scripts/apply-mysql-schema.mjs",
     "db:import-live": "node scripts/import-live-storefront.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
