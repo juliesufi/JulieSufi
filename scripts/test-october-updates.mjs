@@ -20,7 +20,7 @@ async function module(path,imports,append=""){
  await m.evaluate();return m.namespace;
 }
 const origin=await module("lib/request-origin.ts",{});
-const route=await module("app/api/enquiries/route.ts",{"@/lib/request-limit":{requestAllowed:async()=>true},"@/lib/admin-auth":{isAdminRequest:async r=>r.headers.get("cookie")==="test"},"@/lib/site-data":{getD1:()=>db},"@/lib/request-origin":origin,zod:{z}});
+const route=await module("app/api/enquiries/route.ts",{"@/lib/request-limit":{requestAllowed:async()=>true},"@/lib/admin-auth":{isAdminRequest:async r=>r.headers.get("cookie")==="test"},"@/lib/site-data":{getD1:()=>db},"@/lib/request-origin":origin,"@/lib/enquiry-mail":{sendEnquiryEmail:async()=>{}},zod:{z}});
 async function request(method,query="",body,status=200,extra={}){
  const r=await route[method](new Request("https://test.example/api/enquiries"+query,{method,headers:{cookie:"test",origin:"https://test.example",...extra},body:body===undefined?undefined:JSON.stringify(body)}));
  const result=await r.json();assert.equal(r.status,status,JSON.stringify(result));return result;

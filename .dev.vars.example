@@ -7,3 +7,9 @@ MYSQL_DEV_PROXY_ORIGIN=http://127.0.0.1:8788
 ADMIN_PASSCODE=
 ADMIN_SESSION_SECRET=
 INSTAGRAM_ENCRYPTION_KEY=
+
+# Enquiry forms email contact@juliesufi.com through GoDaddy mail.
+# SMTP_HOST=smtpout.secureserver.net
+# SMTP_PORT=465
+# SMTP_USER=contact@juliesufi.com
+SMTP_PASSWORD=

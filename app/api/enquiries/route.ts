@@ -2,6 +2,7 @@ import { isAdminRequest } from "@/lib/admin-auth";
 import { getD1 } from "@/lib/site-data";
 import { z } from "zod";
 import { requestAllowed } from "@/lib/request-limit";
+import { sendEnquiryEmail } from "@/lib/enquiry-mail";
 import { isSameOriginRequest } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
 const schema = z.object({ name: z.string().trim().min(1).max(200), email: z.string().trim().email().max(300), phone: z.string().trim().min(1).max(100).refine(v => v.replace(/\D/g, "").length >= 6, "Enter a valid phone number"), message: z.string().min(1).max(10000), kind: z.string().max(200), productUrl: z.string().max(2000), website: z.string().max(200).optional() });
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
             throw new Error();
         const createdAt = new Date().toISOString(), id = crypto.randomUUID();
         await db.prepare("INSERT INTO site_settings (key,value_json,updated_at) VALUES (?,?,?)").bind("enquiry:" + id, JSON.stringify({ ...parsed.data, id, createdAt }), createdAt).run();
+        try {
+            await sendEnquiryEmail(parsed.data);
+        } catch (error) {
+            console.error("Enquiry email failed", error);
+            return Response.json({ error: "Your enquiry was saved, but the studio email could not be sent. Please email the studio directly." }, { status: 503 });
+        }
         return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     }
     catch {

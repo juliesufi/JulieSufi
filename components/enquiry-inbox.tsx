@@ -42,7 +42,7 @@ export default function EnquiryInbox(){
  }
  const locked=busy||loading,items=data?.items??[],allSelected=items.length>0&&items.every(i=>selected.includes(i.id));
  return <section aria-label="Enquiry inbox">
-  <div className="s-heading"><h1>Enquiries</h1><p>Select messages to mark them read or unread, or delete them to Trash. Changes save immediately. Email notifications are not connected; use the email link to reply.</p></div>
+  <div className="s-heading"><h1>Enquiries</h1><p>Select messages to mark them read or unread, or delete them to Trash. Changes save immediately. Each new enquiry is also emailed to contact@juliesufi.com. Use the visitor email link to reply.</p></div>
   <div className="s-inbox-toolbar">
    <label>Search enquiries<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, email, phone or message" disabled={busy}/></label>
    <label>Show<select value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);setPage(1);setSelected([]);}}><option value="inbox">Inbox</option><option value="unread">Unread</option><option value="read">Read</option><option value="trash">Trash</option></select></label>
