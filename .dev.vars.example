@@ -8,8 +8,8 @@ ADMIN_PASSCODE=
 ADMIN_SESSION_SECRET=
 INSTAGRAM_ENCRYPTION_KEY=
 
-# Enquiry forms email contact@juliesufi.com through that Gmail account.
-# SMTP_PASSWORD is a Google App Password, not the normal Gmail sign-in password.
+# Local enquiry mail only. Hosted GoDaddy apps use the platform email gateway
+# and do not read these values. SMTP_PASSWORD is a Google App Password.
 # SMTP_HOST=smtp.gmail.com
 # SMTP_PORT=465
 # SMTP_USER=contact@juliesufi.com
