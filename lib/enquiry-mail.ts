@@ -17,7 +17,7 @@ function oneLine(value: string) {
 }
 
 export async function sendEnquiryEmail(enquiry: EnquiryEmail) {
-  const pass = process.env.SMTP_PASSWORD;
+  const pass = process.env.SMTP_PASSWORD?.replace(/\s/g, "");
   if (!pass) {
     console.error(
       "Enquiry saved without email: set SMTP_PASSWORD so messages can be sent to " +
@@ -26,7 +26,7 @@ export async function sendEnquiryEmail(enquiry: EnquiryEmail) {
     return;
   }
   const user = process.env.SMTP_USER || ENQUIRY_TO_EMAIL;
-  const host = process.env.SMTP_HOST || "smtpout.secureserver.net";
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
   const port = Number(process.env.SMTP_PORT || "465");
   const transport = nodemailer.createTransport({
     host,
